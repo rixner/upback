@@ -3,8 +3,14 @@ Misc utilities
 """
 
 import datetime
+import dateutil.parser
+import dateutil.tz
 import os
 import fnmatch
+import re
+
+utc = dateutil.tz.tzutc()
+num = re.compile(".*\.(\d+)")
 
 #TODO: implement a more refined matching
 # e.g. wildcard/ only matches dirs
@@ -19,34 +25,17 @@ def parse_rfc3339(datetime_string, report_precision=False):
     """ Returns a datetime object for
         a RFC3339-formatted string
     """
-    timezone = "+0000"
-    if datetime_string.endswith("Z"):
-        datetime_string = datetime_string[0:-1]
-    _, _, datetime_time_string = datetime_string.partition("T")
-    zone_sep = ""
-    if "+" in datetime_time_string:
-        zone_sep = "+"
-    elif "-" in datetime_time_string:
-        zone_sep = "-"
-    if not zone_sep == "":
-        datetime_string, _, datetime_offset = datetime_string.partition(zone_sep)
-        timezone = zone_sep+datetime_offset.replace(":", "")
-    microseconds = 0
-    precision = 0
-    if "." in datetime_time_string:
-        datetime_string, _, datetime_ns = datetime_string.partition(".")
-        microseconds = int(float("0."+datetime_ns)*1000)
-        precision = len(datetime_ns)
-    time_3339 = datetime.datetime.strptime(datetime_string, "%Y-%m-%dT%H:%M:%S")
-    hours = int(timezone[1:3])
-    minutes = int(timezone[3:5])
-    timezone_delta = datetime.timedelta(hours=hours, minutes=minutes)
-    if timezone[0] == '+':
-        time_3339 -= timezone_delta
+    time_3339 = dateutil.parser.parse(datetime_string)
+    if time_3339.tzinfo == None:
+        time_3339 = time_3339.replace(tzinfo=utc)
     else:
-        time_3339 += timezone_delta
-    time_3339 = time_3339.replace(microsecond=microseconds)
+        time_3339 = time_3339.astimezone(utc)
     if report_precision:
+        precision = 0
+        match = num.match(datetime_string)
+        if match:
+            frac = match.group(1)
+            precision = len(frac)
         return (time_3339, precision)
     else:
         return time_3339
